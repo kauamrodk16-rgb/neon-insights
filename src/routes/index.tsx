@@ -317,12 +317,12 @@ function Index() {
 
       // The Worker stores spend in meta.spend. Prefer creative/date keys when present,
       // then fall back to the campaign/date structure used by the original Worker page.
-      const spendByDate = new Map<string, number>();
-      for (const sale of sales) {
-        const keyDate = dateKey(sale.t || 0);
-        spendByDate.set(keyDate, (spendByDate.get(keyDate) || 0) + getSpend(data?.meta || {}, sale.t || 0, campaign, content));
-      }
-      const spend = Array.from(spendByDate.values()).reduce((sum, value) => sum + value, 0);
+      const spendDates = new Set(sales.map((sale) => dateKey(sale.t || 0)));
+      const spend = Array.from(spendDates).reduce((sum, keyDate) => {
+        const [year, month, day] = keyDate.split("-").map(Number);
+        const timestamp = new Date(year, month - 1, day, 12).getTime();
+        return sum + getSpend(data?.meta || {}, timestamp, campaign, content);
+      }, 0);
       const cpa = sales.length ? spend / sales.length : 0;
       const roas = spend ? creativeRevenue / spend : 0;
       const status = spend === 0 ? "Sem gasto" : roas >= 3 ? "Bom" : roas >= 1 ? "Atenção" : "Ruim";
@@ -344,8 +344,8 @@ function Index() {
 
   const totalSpend = useMemo(() => {
     const dates = new Set<number>();
-    filtered.sales.forEach((sale) => {
-      const day = new Date(sale.t || 0);
+    [...filtered.sales, ...filtered.leads].forEach((event) => {
+      const day = new Date(event.t || 0);
       day.setHours(12, 0, 0, 0);
       dates.add(day.getTime());
     });
